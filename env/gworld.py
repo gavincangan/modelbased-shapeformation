@@ -1,17 +1,22 @@
 import numpy as np
-
+import scipy.signal
 from macros import *
 from visualize import *
 import random
 
 class GridWorld:
+
+    move_belief_filter = np.ones((2,2), dtype=float) / 4
+    formation_check_filter = np.ones((3,3), dtype='float')
+
     def __init__(self, h, w, rocks = None):
         self.h = h
         self.w = w
-        self.cells = np.zeros((h, w), dtype=int)
+        self.cells = np.zeros((h, w), dtype=float)
         self.visualize = None
         self.add_rocks(rocks)
         self.aindx_cpos = dict()
+        self.aindx_belief = dict()
 
     def xy_saturate(self, x,y):
         if(x<0): x=0
@@ -19,6 +24,19 @@ class GridWorld:
         if(y<0): y=0
         if(y>self.h-1): y=self.h-1
         return(x, y)
+
+    def get_boundwalls(self):
+        h, w = self.get_size()
+        bwalls = set()
+        for x in range(w):
+            for val in range(SENSE_RANGE):
+                bwalls.add((val, x))
+                bwalls.add((h - val - 1, x))
+        for y in range(h):
+            for val in range(SENSE_RANGE):
+                bwalls.add((y, val))
+                bwalls.add((y, w - val - 1))
+        return tuple(bwalls)
 
     def add_rocks(self, rocks):
         if rocks:
@@ -35,13 +53,10 @@ class GridWorld:
                 nagents = len( self.aindx_cpos.keys() )
                 if(not self.is_blocked(sy, sx)):
                     if(self.cells[sy][sx] == UNOCCUPIED):
-                        self.aindx_cpos[nagents + 1] = (sy, sx)
-                        self.cells[sy][sx] = nagents + 1
-                        if( (sy, sx) in self.goal_pos ):
-                            self.aindx_goalreached[nagents + 1] = True
-                            self.goal_blocked.append( (sy, sx) )
-                        else:
-                            self.aindx_goalreached[nagents + 1] = False
+                        aindx = nagents + 1
+                        self.aindx_cpos[aindx] = (sy, sx)
+                        self.cells[sy][sx] = aindx
+                        self.init_agent_belief(aindx)
                     else:
                         raise Exception('Cell has already been occupied!')
                 else:
@@ -118,6 +133,7 @@ class GridWorld:
         return False
 
     def agent_action(self, aindx, action):
+        retval = RWD_STEP_DEFAULT
         if(aindx in self.aindx_cpos):
             y, x = self.aindx_cpos[aindx]
         else:
@@ -132,17 +148,18 @@ class GridWorld:
             self.aindx_cpos[aindx] = (y, x)
             self.cells[oy][ox] = 0
             self.cells[y][x] = aindx
+            self.update_map_belief(aindx, True, False)
             if(self.visualize): self.visualize.update_agent_vis(aindx)
         elif(action == Actions.WAIT):
-            return (-1)
+            pass
         else:
-            # print 'DoAction: ', aindx, y, x, nbors, action
-            raise Exception('Cell is not unoccupied! : (' + str(y) + ',' + str(x) + ') --> ' + str(action) )
-        return (0)  # if self.aindx_cpos[aindx] == self.aindx_goal[aindx] else (-1)
+            # raise Exception('Cell is not unoccupied! : (' + str(y) + ',' + str(x) + ') --> ' + str(action) )
+            retval = RWD_BUMP_INTO_WALL
+        return (retval)
 
     def passable(self, cell, constraints = None):
         y, x = cell[0], cell[1]
-        if(self.is_blocked(y,x)):
+        if( self.is_blocked(y,x) ):
             return False
         elif( self.cells[y][x] != UNOCCUPIED ):
             return  False
@@ -161,3 +178,91 @@ class GridWorld:
             return self.cells[y][x]
         else:
             return INVALID
+
+    @staticmethod
+    def quad_to_box(y, x, quadrant):
+        if( quadrant == Observe.Quadrant1 ):
+            y1, x1, y2, x2 = y - SENSE_RANGE, x, y + 1, x + SENSE_RANGE + 1
+        elif( quadrant == Observe.Quadrant2 ):
+            y1, x1, y2, x2 = y - SENSE_RANGE, x - SENSE_RANGE, y + 1, x + 1
+        elif( quadrant == Observe.Quadrant3 ):
+            y1, x1, y2, x2 = y, x - SENSE_RANGE, y + SENSE_RANGE + 1, x + 1
+        else:
+            y1, x1, y2, x2 = y, x, y + SENSE_RANGE + 1, x + SENSE_RANGE + 1
+        return y1, x1, y2, x2
+
+    def get_occ_mat(self, y, x, quadrant):
+        y1, x1, y2, x2 = GridWorld.quad_to_box(y, x, quadrant)
+        obs_mat = self.cells[y1:y2, x1:x2].copy()
+        return ( obs_mat, (y1, x1, y2, x2) )
+
+    def anonymize_obs(self, aindx, obs_mat):
+        obs_mat[obs_mat > 0] = 1
+        obs_mat[obs_mat < 0] = 0
+        return obs_mat
+
+    ## All belief functions ##
+    def observe_quadrant(self, aindx, quadrant):
+        y, x = self.aindx_cpos[aindx]
+        obs_mat, box = self.get_occ_mat(y, x, quadrant)
+        obs_mat = self.anonymize_obs(aindx, obs_mat)
+        self.update_map_belief(aindx, False, True, obs_mat, box)
+
+
+    def move_belief_update(self, aindx):
+        belief_mat = self.aindx_belief[aindx]
+        belief_mat = scipy.signal.convolve2d(belief_mat, GridWorld.move_belief_filter, 'same')
+        self.aindx_belief[aindx] = belief_mat
+
+
+    def get_pos_matrix(self, aindx):
+        pos_mat = np.zeros_like(self.cells)
+        y, x = self.aindx_cpos[aindx]
+        pos_mat[y][x] = 1
+        pos_mat[self.cells == IS_ROCK] = IS_ROCK
+        return pos_mat
+
+    def get_belief_matrix(self, aindx):
+        return self.aindx_belief[aindx]
+
+    # Uniformly initialize
+    def init_agent_belief(self, aindx):
+        self.aindx_belief[aindx] = np.ones_like(self.cells) / ((self.h) * (self.w))
+
+    def update_map_belief(self, aindx, is_action = False, is_obs = False, obs_mat = None, box = None):
+        if(is_obs):
+            if(obs_mat is not None and box):
+                n_inrange = obs_mat[obs_mat == 1].sum()
+                n_agents = len(self.get_agents())
+                y1, x1, y2, x2 = box
+
+                notupdate_mat = np.ones_like(self.cells)
+                notupdate_mat[y1:y2, x1:x2].fill(0)
+
+                notupdate_mat *= ( (n_agents - n_inrange) )
+                notupdate_mat /= (self.h * self.w - SENSE_RANGE * SENSE_RANGE)
+                notupdate_mat *= (1 - PROB_SENSE)
+
+                update_mat = np.zeros_like(self.cells)
+                update_mat[y1:y2, x1:x2] = obs_mat
+
+                update_mat *= ( (n_inrange) )
+                update_mat /= (SENSE_RANGE * SENSE_RANGE)
+                update_mat *= PROB_SENSE
+
+                new_belief_mat = np.multiply( self.aindx_belief[aindx], update_mat + notupdate_mat)
+
+                self.aindx_belief[aindx] = new_belief_mat / new_belief_mat.sum()
+
+        if(is_action):
+            self.move_belief_update(aindx)
+
+    def get_agent_state(self, aindx):
+        pos_matrix = self.get_pos_matrix(aindx)
+        belief_matrix = self.get_belief_matrix(aindx)
+        return np.concatenate( (pos_matrix, belief_matrix) )
+
+    def check_formation(self, agent):
+        cell_mat = self.cells.copy()
+        conv_op = scipy.signal.convolve2d(cell_mat, GridWorld.formation_check_filter)
+        return conv_op.max()
