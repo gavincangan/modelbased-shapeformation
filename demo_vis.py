@@ -21,6 +21,8 @@ class DemoShapeAgent:
 
     def init_env(self):
         self.env = GridWorld(WORLD_H, WORLD_W)
+        bwalls = self.env.get_boundwalls()
+        self.env.add_rocks(bwalls)
         self.env.add_agents_rand(NUM_AGENTS)
         self.env.visualize = Visualize(self.env)
         self.env.visualize.draw_world()
@@ -84,6 +86,7 @@ if __name__ == "__main__":
             step_count += 1
             for agent in agents:
                 if not done_flag:
+                    sa.env.visualize.highlight_agent(agent)
                     state = sa.env.get_agent_state(agent)
                     qval_act = sa.act_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)
                     qval_obs = sa.obs_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)

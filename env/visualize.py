@@ -5,9 +5,9 @@ from Tkinter import *
 import random
 
 class Visualize:
-    prev_agent_move = None
+    prev_agent_highlighted = None
     DEFAULT_COLOR = 1
-    MOVE_COLOR = 2
+    HIGHLIGHT_COLOR = 2
     def __init__(self, world_data):
         self.frame = Tk()
         self.canvas = Canvas(self.frame, width=FRAME_WIDTH, height=FRAME_HEIGHT)
@@ -50,11 +50,6 @@ class Visualize:
                     self.aindx_obj[cell] = self.canvas.create_oval(x1, y1, x2, y2, fill=COLORS[color_indx], outline=COLORS[color_indx])
 
     def update_agent_vis(self, aindx):
-        if(Visualize.prev_agent_move):
-            self.canvas.itemconfig(self.aindx_obj[Visualize.prev_agent_move], fill=COLORS[Visualize.DEFAULT_COLOR])
-        Visualize.prev_agent_move = aindx
-        self.canvas.itemconfig(self.aindx_obj[aindx], fill=COLORS[Visualize.MOVE_COLOR])
-
         cy, cx = self.world.aindx_cpos[aindx]
         y1, x1, y2, x2 = self.get_pos_in_cell(cy, cx)
         self.canvas.coords(self.aindx_obj[aindx], x1, y1, x2, y2)
@@ -77,3 +72,9 @@ class Visualize:
 
     def do_pack(self):
         self.canvas.pack()
+
+    def highlight_agent(self, agent):
+        if(Visualize.prev_agent_highlighted):
+            self.canvas.itemconfig(self.aindx_obj[Visualize.prev_agent_highlighted], fill=COLORS[Visualize.DEFAULT_COLOR])
+        Visualize.prev_agent_highlighted = agent
+        self.canvas.itemconfig(self.aindx_obj[agent], fill=COLORS[Visualize.HIGHLIGHT_COLOR])

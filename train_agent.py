@@ -7,7 +7,7 @@ import os.path
 
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
-from keras.optimizers import RMSprop
+from keras.optimizers import RMSprop, Adam
 
 class ShapeAgent:
     def __init__(self):
@@ -24,16 +24,22 @@ class ShapeAgent:
 
     def init_env(self):
         self.env = GridWorld(WORLD_H, WORLD_W)
+        bwalls = self.env.get_boundwalls()
+        self.env.add_rocks(bwalls)
         self.env.add_agents_rand(NUM_AGENTS)
 
     def init_model(self):
         shared_model = Sequential()
-        shared_model.add(Dense(164, init='lecun_uniform', input_shape=(2 * WORLD_W * WORLD_H,)))
+        shared_model.add(Dense(256, init='lecun_uniform', input_shape=(2 * WORLD_W * WORLD_H,)))
         shared_model.add(Activation('relu'))
 
-        shared_model.add(Dense(150, init='lecun_uniform'))
+        shared_model.add(Dense(256, init='lecun_uniform'))
         shared_model.add(Activation('relu'))
-        # shared_model.add(Dropout(0.2))
+        shared_model.add(Dropout(0.2))
+
+        shared_model.add(Dense(128, init='lecun_uniform'))
+        shared_model.add(Activation('relu'))
+        shared_model.add(Dropout(0.2))
 
         act_model = Sequential()
         act_model.add(shared_model)
@@ -43,10 +49,11 @@ class ShapeAgent:
         obs_model.add(shared_model)
         obs_model.add(Dense(4, init='lecun_uniform', activation='softmax'))
 
-        rms = RMSprop()
+        rms = RMSprop(lr=1e-10)
+        adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=0.1, decay=0.0)
 
-        act_model.compile(rms, "categorical_crossentropy")
-        obs_model.compile(rms, "mse")
+        act_model.compile(adam, 'logcosh')
+        obs_model.compile(adam, 'logcosh')
 
         self.act_model = act_model
         self.obs_model = obs_model
@@ -99,6 +106,7 @@ if __name__ == "__main__":
                 if(step_count % 40 == 0):
                     print('Agent #%s \tact:%s actQ:%s \n\t\tobs:%s obsQ:%s \n\t\tactR:%s, shapeR:%s' % ( \
                     agent, action, qval_act, obs_quad, qval_obs, act_reward, shape_reward))
+
 
                 sa.replay.append( (state, action, obs_quad, act_reward, shape_reward, new_state) )
 
@@ -156,7 +164,8 @@ if __name__ == "__main__":
                 X_train = np.array(X_train, dtype='float')
                 Y_act_train = np.array(Y_act_train, dtype='float')
                 Y_obs_train = np.array(Y_obs_train, dtype='float')
-                sa.act_model.fit(X_train, Y_act_train, batch_size=sa.batchsize, epochs=5, verbose=0 )
+                sa.act_model.fit(X_train, Y_act_train, batch_size=sa.batchsize, epochs=1, verbose=1 )
+                sa.obs_model.fit(X_train, Y_obs_train, batch_size=sa.batchsize, epochs=1, verbose=1 )
 
         if(sa.epsilon > 0.1):
             sa.epsilon -= (1/1000)
