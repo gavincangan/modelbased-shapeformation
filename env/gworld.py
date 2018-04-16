@@ -7,7 +7,6 @@ import random
 class GridWorld:
 
     move_belief_filter = np.ones((2,2), dtype=float) / 4
-    formation_check_filter = np.ones((3,3), dtype='float')
 
     def __init__(self, h, w, rocks = None):
         self.h = h
@@ -211,7 +210,8 @@ class GridWorld:
 
     def move_belief_update(self, aindx):
         belief_mat = self.aindx_belief[aindx]
-        belief_mat = scipy.signal.convolve2d(belief_mat, GridWorld.move_belief_filter, 'same')
+        belief_mat = scipy.signal.convolve2d(belief_mat, GridWorld.move_belief_filter, 'same', 'fill', fillvalue=0)
+        belief_mat /= belief_mat.sum()
         self.aindx_belief[aindx] = belief_mat
 
 
@@ -263,6 +263,8 @@ class GridWorld:
         return np.concatenate( (pos_matrix, belief_matrix) )
 
     def check_formation(self, agent):
-        cell_mat = self.cells.copy()
-        conv_op = scipy.signal.convolve2d(cell_mat, GridWorld.formation_check_filter)
-        return conv_op.max()
+        y, x = self.aindx_cpos[agent]
+        nbors = self.check_nbors(y, x)
+        nbors = self.anonymize_obs(agent, nbors[:-1])
+        # conv_op = scipy.signal.convolve2d(cell_mat, GridWorld.formation_check_filter)
+        return nbors.sum()
