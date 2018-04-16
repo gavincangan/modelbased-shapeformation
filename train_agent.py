@@ -133,9 +133,9 @@ if __name__ == "__main__":
                     Y_obs_train.append(y_obs.reshape(4, ))
 
 
-                X_train = np.array(X_train)
-                Y_act_train = np.array(Y_act_train)
-                Y_obs_train = np.array(Y_obs_train)
+                X_train = np.array(X_train, dtype='float')
+                Y_act_train = np.array(Y_act_train, dtype='float')
+                Y_obs_train = np.array(Y_obs_train, dtype='float')
                 print("Game #:%s" % (i,))
                 sa.act_model.fit(X_train, Y_act_train, batch_size=sa.batchsize, epochs=1, verbose=1 )
 
