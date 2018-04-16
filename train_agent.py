@@ -3,6 +3,7 @@ from env.gworld import *
 from env.visualize import *
 from collections import deque
 import random
+import os.path
 
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
@@ -56,8 +57,10 @@ class ShapeAgent:
         self.obs_model.save_weights(WTS_OBSERVE_Q)
 
     def load_model(self):
-        self.act_model.load_weights(WTS_ACTION_Q)
-        self.obs_model.load_weights(WTS_OBSERVE_Q)
+        if(os.path.isfile(WTS_ACTION_Q)):
+            self.act_model.load_weights(WTS_ACTION_Q)
+        if (os.path.isfile(WTS_OBSERVE_Q)):
+            self.obs_model.load_weights(WTS_OBSERVE_Q)
 
 if __name__ == "__main__":
 
@@ -157,7 +160,7 @@ if __name__ == "__main__":
 
         if(sa.epsilon > 0.1):
             sa.epsilon -= (1/1000)
-        if(i % 100 == 0):
+        if(i % 5 == 0):
             sa.save_model()
 
 
