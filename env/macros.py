@@ -26,6 +26,8 @@ WORLD_H = 7
 WORLD_W = 7
 NUM_AGENTS = 4
 
+EXPERIMENT_VERSION = 0
+
 FRAME_HEIGHT = 600
 FRAME_WIDTH = 600
 
@@ -59,7 +61,9 @@ RWD_STEP_DEFAULT = -0.1
 RWD_BUMP_INTO_WALL = -5
 RWD_GOAL_FORMATION = 5
 
+#agent_act_W7x7_A4_v0
+
 # Learning agent
-WTS_ACTION_Q = None
-WTS_OBSERVE_Q = None
+WTS_ACTION_Q = './save_model/agent_act_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION) + '.h5'
+WTS_OBSERVE_Q = './save_model/agent_obs_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION)  + '.h5'
 
