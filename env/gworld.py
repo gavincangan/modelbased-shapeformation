@@ -107,6 +107,11 @@ class GridWorld:
         nbor_cells.append((y, x))
         return nbor_cells
 
+    def get_nbor_SxSgrid(self, agent):
+        y, x = self.aindx_cpos[agent]
+        Sgrid = self.cells[y - SENSE_RANGE : y + SENSE_RANGE + 1, x - SENSE_RANGE : x + SENSE_RANGE + 1]
+        return Sgrid.copy()
+
     def check_nbors(self, y, x):
         '''
         Return contents of neighbors of given cell
@@ -262,9 +267,17 @@ class GridWorld:
         belief_matrix = self.get_belief_matrix(aindx)
         return np.concatenate( (pos_matrix, belief_matrix) )
 
+    # def check_formation(self, agent):
+    #     y, x = self.aindx_cpos[agent]
+    #     print self.get_nbor_SxSgrid(agent)
+    #     nbors = self.check_nbors(y, x)
+    #     nbors = self.anonymize_obs(agent, nbors[:-1])
+    #     # conv_op = scipy.signal.convolve2d(cell_mat, GridWorld.formation_check_filter)
+    #     return nbors.sum()
+
     def check_formation(self, agent):
         y, x = self.aindx_cpos[agent]
-        nbors = self.check_nbors(y, x)
-        nbors = self.anonymize_obs(agent, nbors[:-1])
+        nbor_grid = self.get_nbor_SxSgrid(agent)
+        nbor_grid = self.anonymize_obs(agent, nbor_grid)
         # conv_op = scipy.signal.convolve2d(cell_mat, GridWorld.formation_check_filter)
-        return nbors.sum()
+        return nbor_grid.sum()
