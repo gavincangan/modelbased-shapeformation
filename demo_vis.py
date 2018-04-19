@@ -3,10 +3,11 @@ from env.gworld import *
 from env.visualize import *
 from collections import deque
 import random
+import os
 
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
-from keras.optimizers import RMSprop
+from keras.optimizers import RMSprop, Adam
 
 class DemoShapeAgent:
     def __init__(self):
@@ -32,12 +33,16 @@ class DemoShapeAgent:
 
     def init_model(self):
         shared_model = Sequential()
-        shared_model.add(Dense(164, init='lecun_uniform', input_shape=(2 * WORLD_W * WORLD_H,)))
+        shared_model.add(Dense(256, init='lecun_uniform', input_shape=(2 * WORLD_W * WORLD_H,)))
         shared_model.add(Activation('relu'))
 
-        shared_model.add(Dense(150, init='lecun_uniform'))
+        shared_model.add(Dense(256, init='lecun_uniform'))
         shared_model.add(Activation('relu'))
-        # shared_model.add(Dropout(0.2))
+        shared_model.add(Dropout(0.2))
+
+        shared_model.add(Dense(128, init='lecun_uniform'))
+        shared_model.add(Activation('relu'))
+        shared_model.add(Dropout(0.2))
 
         act_model = Sequential()
         act_model.add(shared_model)
@@ -49,20 +54,24 @@ class DemoShapeAgent:
 
         rms = RMSprop()
 
-        act_model.compile(rms, "categorical_crossentropy")
-        obs_model.compile(rms, "mse")
+        adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=0.1, decay=0.0)
+
+        act_model.compile(adam, 'logcosh')
+        obs_model.compile(adam, 'logcosh')
 
         self.act_model = act_model
         self.obs_model = obs_model
         # model.load_weights(WTS_ACTION_Q)
 
     def save_model(self):
-        self.act_model.save_weights('./save_model/agent_act_W7x7_A4_v0.h5')
-        self.obs_model.save_weights('./save_model/agent_obs_W7x7_A4_v0.h5')
+        self.act_model.save_weights(WTS_ACTION_Q)
+        self.obs_model.save_weights(WTS_OBSERVE_Q)
 
     def load_model(self):
-        self.act_model.load_weights('./save_model/agent_act_W7x7_A4_v0.h5')
-        self.obs_model.load_weights('./save_model/agent_obs_W7x7_A4_v0.h5')
+        if(os.path.isfile(WTS_ACTION_Q)):
+            self.act_model.load_weights(WTS_ACTION_Q)
+        if (os.path.isfile(WTS_OBSERVE_Q)):
+            self.obs_model.load_weights(WTS_OBSERVE_Q)
 
     def disp_update(self, T = 0):
         self.env.visualize.canvas.update()

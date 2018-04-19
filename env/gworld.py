@@ -6,9 +6,13 @@ import random
 
 class GridWorld:
 
-    move_belief_filter = np.ones((2,2), dtype=float) / 4
+    move_belief_filter = np.ones((3, 3), dtype=float) / 5
+    move_belief_filter[0, 0] = 0
+    move_belief_filter[0, 2] = 0
+    move_belief_filter[2, 0] = 0
+    move_belief_filter[2, 2] = 0
 
-    def __init__(self, h, w, rocks = None):
+    def __init__(self, h, w, rocks=None):
         self.h = h
         self.w = w
         self.cells = np.zeros((h, w), dtype=float)
@@ -17,7 +21,7 @@ class GridWorld:
         self.aindx_cpos = dict()
         self.aindx_belief = dict()
 
-    def xy_saturate(self, x,y):
+    def xy_saturate(self, x, y):
         if(x<0): x=0
         if(x>self.w-1): x=self.w-1
         if(y<0): y=0
