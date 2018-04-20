@@ -27,6 +27,7 @@ class ShapeAgent:
         bwalls = self.env.get_boundwalls()
         self.env.add_rocks(bwalls)
         self.env.add_agents_rand(NUM_AGENTS)
+        self.env.init_agent_beliefs()
 
     def init_model(self):
         shared_model = Sequential()

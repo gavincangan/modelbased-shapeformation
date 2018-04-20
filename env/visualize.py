@@ -25,11 +25,11 @@ class Visualize:
             for col in range(ncols):
                 self.vis_cells[row][col] = self.canvas.create_rectangle(FRAME_MARGIN + self.cell_w * col, FRAME_MARGIN + self.cell_h * row, FRAME_MARGIN + self.cell_w * (col+1), FRAME_MARGIN + self.cell_h * (row+1) )
                 if self.world.cells[row][col] == IS_ROCK:
-                    self.canvas.itemconfig(self.vis_cells[row][col], fill='black', width=2)
+                    self.canvas.itemconfig(self.vis_cells[row][col], fill='black', outline='white', width=2)
                 # elif( (row, col) in self.world.goal_pos ):
                 #     self.canvas.itemconfig(self.vis_cells[row][col], outline='green', width=4)
                 else:
-                    self.canvas.itemconfig(self.vis_cells[row][col], fill='white', outline='black', width='2')
+                    self.canvas.itemconfig(self.vis_cells[row][col], fill='white', outline='black', width=2)
 
     def get_pos_in_cell(self, crow, ccol):
         agent_h = self.agent_h
@@ -78,3 +78,4 @@ class Visualize:
             self.canvas.itemconfig(self.aindx_obj[Visualize.prev_agent_highlighted], fill=COLORS[Visualize.DEFAULT_COLOR])
         Visualize.prev_agent_highlighted = agent
         self.canvas.itemconfig(self.aindx_obj[agent], fill=COLORS[Visualize.HIGHLIGHT_COLOR])
+        self.canvas.update()

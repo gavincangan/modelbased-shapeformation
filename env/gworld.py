@@ -59,7 +59,6 @@ class GridWorld:
                         aindx = nagents + 1
                         self.aindx_cpos[aindx] = (sy, sx)
                         self.cells[sy][sx] = aindx
-                        self.init_agent_belief(aindx)
                     else:
                         raise Exception('Cell has already been occupied!')
                 else:
@@ -111,9 +110,9 @@ class GridWorld:
         nbor_cells.append((y, x))
         return nbor_cells
 
-    def get_nbor_SxSgrid(self, agent):
+    def get_nbor_SxSgrid(self, agent, S):
         y, x = self.aindx_cpos[agent]
-        Sgrid = self.cells[y - SENSE_RANGE : y + SENSE_RANGE + 1, x - SENSE_RANGE : x + SENSE_RANGE + 1]
+        Sgrid = self.cells[y - S : y + S + 1, x - S : x + S + 1]
         return Sgrid.copy()
 
     def check_nbors(self, y, x):
@@ -235,8 +234,15 @@ class GridWorld:
         return self.aindx_belief[aindx]
 
     # Uniformly initialize
-    def init_agent_belief(self, aindx):
-        self.aindx_belief[aindx] = np.ones_like(self.cells) / ((self.h) * (self.w))
+    def init_agent_beliefs(self):
+        agents = self.get_agents()
+        nagents = len(agents)
+        init_belief_mat = np.ones_like(self.cells)
+        init_belief_mat[self.cells == IS_ROCK] = 0
+        init_expectation = (float(1)) / float((self.h - 2.0 * SENSE_RANGE) * (self.w - 2.0 * SENSE_RANGE))
+        init_belief_mat *= init_expectation
+        for agent in agents:
+            self.aindx_belief[agent] = init_belief_mat
 
     def update_map_belief(self, aindx, is_action = False, is_obs = False, obs_mat = None, box = None):
         if(is_obs):
@@ -247,24 +253,25 @@ class GridWorld:
 
                 notupdate_mat = np.ones_like(self.cells)
                 notupdate_mat[y1:y2, x1:x2].fill(0)
+                notupdate_mat[self.cells == IS_ROCK] = 0
+                num_not_update = np.count_nonzero(notupdate_mat)
 
                 notupdate_mat *= ( (n_agents - n_inrange) )
-                notupdate_mat /= (self.h * self.w - SENSE_RANGE * SENSE_RANGE)
-                notupdate_mat *= (1 - PROB_SENSE)
+                notupdate_mat /= num_not_update
 
-                update_mat = np.zeros_like(self.cells)
-                update_mat[y1:y2, x1:x2] = obs_mat
+                update_yes_mat = np.zeros_like(self.cells)
+                update_yes_mat[y1:y2, x1:x2] = obs_mat
 
-                update_mat *= ( (n_inrange) )
-                update_mat /= (SENSE_RANGE * SENSE_RANGE)
-                update_mat *= PROB_SENSE
+                update_no_mat = np.zeros_like(self.cells)
+                update_no_mat[y1:y2, x1:x2] = np.ones_like(obs_mat) - obs_mat
 
-                new_belief_mat = np.multiply( self.aindx_belief[aindx], update_mat + notupdate_mat)
+                new_belief_mat = ( self.aindx_belief[aindx] ) * ( ( ( update_yes_mat * (PROB_SENSE) ) + ( update_no_mat * (1 - PROB_SENSE) ) ) + notupdate_mat )
 
-                self.aindx_belief[aindx] = new_belief_mat / new_belief_mat.sum()
+                self.aindx_belief[aindx] = new_belief_mat / ( new_belief_mat.sum() + 1e-128 )
 
         if(is_action):
-            self.move_belief_update(aindx)
+            pass
+            # self.move_belief_update(aindx)
 
     def get_agent_state(self, aindx):
         pos_matrix = self.get_pos_matrix(aindx)
@@ -281,7 +288,8 @@ class GridWorld:
 
     def check_formation(self, agent):
         y, x = self.aindx_cpos[agent]
-        nbor_grid = self.get_nbor_SxSgrid(agent)
+        nbor_grid = self.get_nbor_SxSgrid(agent, 1)
         nbor_grid = self.anonymize_obs(agent, nbor_grid)
+        nbor_grid[1, 1] = 0
         # conv_op = scipy.signal.convolve2d(cell_mat, GridWorld.formation_check_filter)
         return nbor_grid.sum()

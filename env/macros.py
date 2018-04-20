@@ -18,7 +18,7 @@ IS_ROCK = -1
 SENSE_RANGE = 2
 MOVE_SPEED = 1
 
-PROB_SENSE = 0.9
+PROB_SENSE = 0.85
 
 MSG_BUFFER_SIZE = 3
 
@@ -26,7 +26,7 @@ WORLD_H = 9
 WORLD_W = 9
 NUM_AGENTS = 4
 
-EXPERIMENT_VERSION = 2
+EXPERIMENT_VERSION = 3
 
 FRAME_HEIGHT = 600
 FRAME_WIDTH = 600
@@ -67,3 +67,9 @@ RWD_GOAL_FORMATION = 5
 WTS_ACTION_Q = './save_model/agent_act_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION) + '.h5'
 WTS_OBSERVE_Q = './save_model/agent_obs_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION)  + '.h5'
 
+'''
+Experiment versions:
+
+1. Wrong belief update
+
+'''

@@ -25,6 +25,7 @@ class DemoShapeAgent:
         bwalls = self.env.get_boundwalls()
         self.env.add_rocks(bwalls)
         self.env.add_agents_rand(NUM_AGENTS)
+        self.env.init_agent_beliefs()
         self.env.visualize = Visualize(self.env)
         self.env.visualize.draw_world()
         self.env.visualize.draw_agents()
@@ -33,31 +34,29 @@ class DemoShapeAgent:
 
     def init_model(self):
         shared_model = Sequential()
-        shared_model.add(Dense(256, init='lecun_uniform', input_shape=(2 * WORLD_W * WORLD_H,)))
+        shared_model.add(Dense(256, kernel_initializer="lecun_uniform", input_shape=(2 * WORLD_W * WORLD_H,)))
         shared_model.add(Activation('relu'))
 
-        shared_model.add(Dense(256, init='lecun_uniform'))
+        shared_model.add(Dense(256, kernel_initializer="lecun_uniform"))
         shared_model.add(Activation('relu'))
         shared_model.add(Dropout(0.2))
 
-        shared_model.add(Dense(128, init='lecun_uniform'))
+        shared_model.add(Dense(128, kernel_initializer="lecun_uniform"))
         shared_model.add(Activation('relu'))
         shared_model.add(Dropout(0.2))
 
         act_model = Sequential()
         act_model.add(shared_model)
-        act_model.add(Dense(5, init='lecun_uniform', activation='softmax'))
+        act_model.add(Dense(5, kernel_initializer="lecun_uniform", activation='softmax'))
 
         obs_model = Sequential()
         obs_model.add(shared_model)
-        obs_model.add(Dense(4, init='lecun_uniform', activation='softmax'))
-
-        rms = RMSprop()
+        obs_model.add(Dense(4, kernel_initializer="lecun_uniform", activation='softmax'))
 
         adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=0.1, decay=0.0)
 
-        act_model.compile(adam, 'logcosh')
-        obs_model.compile(adam, 'logcosh')
+        act_model.compile(adam, 'mse')
+        obs_model.compile(adam, 'mse')
 
         self.act_model = act_model
         self.obs_model = obs_model
@@ -111,7 +110,8 @@ if __name__ == "__main__":
                     act_reward = sa.env.agent_action(agent, action)
                     shape_reward = sa.env.check_formation(agent) * RWD_GOAL_FORMATION
 
-                    print ('Agent #%s \tact:%s actQ:%s \n\t\tobs:%s obsQ:%s \n\t\tactR:%s, shapeR:%s' % (agent, action, qval_act, obs_quad, qval_obs, act_reward, shape_reward))
+                    # print ('Agent #%s \tact:%s actQ:%s \n\t\tobs:%s obsQ:%s \n\t\tactR:%s, shapeR:%s' % (agent, action, qval_act, obs_quad, qval_obs, act_reward, shape_reward))
+                    print ('Agent #%s actR:%s, shapeR:%s' % (agent, act_reward, shape_reward))
 
                     new_state = sa.env.get_agent_state(agent)
 
