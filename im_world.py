@@ -9,6 +9,59 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import RMSprop, Adam
 
+class ImWorldModel:
+    def __init__(self):
+        self.num_iter = 10000
+        self.gamma = 0.975
+        self.epsilon = 0.25
+        self.batchsize = 40
+        self.episode_maxlen = 80
+        self.replay = deque(maxlen=2000)
+        # self.init_env()
+        # self.init_model()
+
+    def init_model(self):
+        shared_model = Sequential()
+        shared_model.add(Dense(256, kernel_initializer="lecun_uniform", input_shape=(2 * WORLD_W * WORLD_H + Actions.NUM_ACTIONS + Observe.NUM_QUADRANTS,)))
+        shared_model.add(Activation('relu'))
+
+        shared_model.add(Dense(128, kernel_initializer="lecun_uniform"))
+        shared_model.add(Activation('relu'))
+        shared_model.add(Dropout(0.2))
+
+        shared_model.add(Dense(64, kernel_initializer="lecun_uniform"))
+        shared_model.add(Activation('relu'))
+        shared_model.add(Dropout(0.2))
+
+        reward_model = Sequential()
+        reward_model.add(shared_model)
+        reward_model.add(Dense(27, kernel_initializer="lecun_uniform", activation='relu'))
+        reward_model.add(Dropout(0.2))
+        reward_model.add(Dense(1, kernel_initializer="lecun_uniform", activation='linear'))
+
+        imworld_model = Sequential()
+        imworld_model.add(shared_model)
+        imworld_model.add(Dense(2 * WORLD_W * WORLD_H, kernel_initializer="lecun_uniform", activation='softmax'))
+
+        adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=0.1, decay=0.0)
+
+        reward_model.compile(adam, 'mse')
+        imworld_model.compile(adam, 'mse')
+
+        self.reward_model = reward_model
+        self.imworld_model = imworld_model
+        # model.load_weights(WTS_REWARD_MODEL)
+
+    def save_model(self):
+        self.imworld_model.save_weights(WTS_IMWORLD_MODEL)
+        self.reward_model.save_weights(WTS_REWARD_MODEL)
+
+    def load_model(self):
+        if(os.path.isfile(WTS_IMWORLD_MODEL)):
+            self.imworld_model.load_weights(WTS_IMWORLD_MODEL)
+        if (os.path.isfile(WTS_REWARD_MODEL)):
+            self.reward_model.load_weights(WTS_OBSERVE_Q)
+
 class DemoShapeAgent:
     def __init__(self):
         self.num_iter = 10000
@@ -26,11 +79,6 @@ class DemoShapeAgent:
         self.env.add_rocks(bwalls)
         self.env.add_agents_rand(NUM_AGENTS)
         self.env.init_agent_beliefs()
-        self.env.visualize = Visualize(self.env)
-        self.env.visualize.draw_world()
-        self.env.visualize.draw_agents()
-        self.env.visualize.canvas.pack()
-        self.disp_update(100)
 
     def init_model(self):
         shared_model = Sequential()
@@ -72,11 +120,6 @@ class DemoShapeAgent:
         if (os.path.isfile(WTS_OBSERVE_Q)):
             self.obs_model.load_weights(WTS_OBSERVE_Q)
 
-    def disp_update(self, T = 0):
-        self.env.visualize.canvas.update()
-        if(T):
-            self.env.visualize.canvas.after(T)
-
 if __name__ == "__main__":
 
     sa = DemoShapeAgent()
@@ -95,9 +138,9 @@ if __name__ == "__main__":
             for agent in agents:
                 if not done_flag:
                     sa.env.visualize.highlight_agent(agent)
-                    state = sa.env.get_agent_state(agent)
-                    qval_act = sa.act_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)
-                    qval_obs = sa.obs_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)
+                    state = sa.env.get_agent_state(agent).reshape(1, 2 * WORLD_H * WORLD_W)
+                    qval_act = sa.act_model.predict(state, batch_size=1)
+                    qval_obs = sa.obs_model.predict(state, batch_size=1)
 
                     if(random.random() < sa.epsilon):
                         action = np.random.randint(Actions.RIGHT, Actions.WAIT)

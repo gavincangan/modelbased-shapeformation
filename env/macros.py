@@ -44,12 +44,14 @@ class Actions(object):
     LEFT = 2
     DOWN = 3
     WAIT = 4
+    NUM_ACTIONS = 5
 
 class Observe(object):
     Quadrant1 = 0
     Quadrant2 = 1
     Quadrant3 = 2
     Quadrant4 = 3
+    NUM_QUADRANTS = 4
 
 COLORS = ['red', 'green', 'blue', 'black', 'white', 'magenta', 'cyan', 'yellow']
 
@@ -58,14 +60,17 @@ MAX_COLOR = len(COLORS) - 1
 
 ## Rewards ##
 RWD_STEP_DEFAULT = -0.1
-RWD_BUMP_INTO_WALL = -5
-RWD_GOAL_FORMATION = 5
+RWD_BUMP_INTO_WALL = -2
+RWD_GOAL_FORMATION = 2
 
 #agent_act_W7x7_A4_v0
 
 # Learning agent
 WTS_ACTION_Q = './save_model/agent_act_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION) + '.h5'
 WTS_OBSERVE_Q = './save_model/agent_obs_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION)  + '.h5'
+
+WTS_IMWORLD_MODEL = './save_model/agent_imworld_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION) + '.h5'
+WTS_REWARD_MODEL = './save_model/agent_reward_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION) + '.h5'
 
 '''
 Experiment versions:

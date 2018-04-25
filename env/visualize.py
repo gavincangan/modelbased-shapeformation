@@ -1,7 +1,7 @@
 from macros import *
 import numpy as np
 from gworld import *
-from Tkinter import *
+# from Tkinter import *
 import random
 
 class Visualize:

@@ -5,7 +5,7 @@ from collections import deque
 import random
 import os.path
 
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import RMSprop, Adam
 
