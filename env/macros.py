@@ -1,4 +1,8 @@
 import pdb
+import pandas as pd
+import scipy.stats
+import numpy as np
+import random
 
 INVALID = -999
 HARD_PLACE = -999
@@ -52,6 +56,7 @@ class Observe(object):
     Quadrant3 = 2
     Quadrant4 = 3
     NUM_QUADRANTS = 4
+    TotalOptions = 8
 
 COLORS = ['red', 'green', 'blue', 'black', 'white', 'magenta', 'cyan', 'yellow']
 
@@ -60,17 +65,30 @@ MAX_COLOR = len(COLORS) - 1
 
 ## Rewards ##
 RWD_STEP_DEFAULT = -0.1
-RWD_BUMP_INTO_WALL = -2
-RWD_GOAL_FORMATION = 2
+RWD_BUMP_INTO_WALL = -0.1
+RWD_CLOSENESS = 0.2
+RWD_SHAPE_FORMED = 5
 
 #agent_act_W7x7_A4_v0
 
 # Learning agent
 WTS_ACTION_Q = './save_model/agent_act_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION) + '.h5'
-WTS_OBSERVE_Q = './save_model/agent_obs_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION)  + '.h5'
+WTS_OBSERVE_Q = './save_model/agent_obs8_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION)  + '.h5'
 
 WTS_IMWORLD_MODEL = './save_model/agent_imworld_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION) + '.h5'
 WTS_REWARD_MODEL = './save_model/agent_reward_W' + str(WORLD_H) + 'x' + str(WORLD_W) + '_A' + str(NUM_AGENTS) + '_v' + str(EXPERIMENT_VERSION) + '.h5'
+
+
+def entropy(data):
+    p_data = data.value_counts(True)
+    # calculates the probabilities
+    entropy = scipy.stats.entropy(p_data)  # input probabilities to get the entropy
+    return entropy
+
+
+def entropy1(labels, base=None):
+    value,counts = np.unique(labels, return_counts=True)
+    return scipy.stats.entropy(counts, base=base)
 
 '''
 Experiment versions:

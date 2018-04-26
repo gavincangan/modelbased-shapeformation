@@ -10,17 +10,18 @@ from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import RMSprop, Adam
 
 class ShapeAgent:
-    def __init__(self):
+    def __init__(self, show_vis = False):
         self.num_iter = 10000
         self.gamma = 0.975
-        self.epsilon = 1
-        self.batchsize = 400
+        self.alpha = 0.75
+        self.beta = 0.55
+        self.epsilon = 0.25
+        self.batchsize = 40
         self.episode_maxlen = 80
-        self.alpha = 0.85
-        self.beta = 0.45
-        self.replay = deque(maxlen=2000)
-        self.init_env()
-        self.init_model()
+        self.replay = deque(maxlen=4000)
+        self.show_vis = show_vis
+        # self.init_env()
+        # self.init_model()
 
     def init_env(self):
         self.env = GridWorld(WORLD_H, WORLD_W)
@@ -28,33 +29,40 @@ class ShapeAgent:
         self.env.add_rocks(bwalls)
         self.env.add_agents_rand(NUM_AGENTS)
         self.env.init_agent_beliefs()
+        if(self.show_vis):
+            self.env.visualize = Visualize(self.env)
+            self.env.visualize.draw_world()
+            self.env.visualize.draw_agents()
+            self.env.visualize.canvas.pack()
+            self.disp_update(100)
 
     def init_model(self):
         shared_model = Sequential()
-        shared_model.add(Dense(256, init='lecun_uniform', input_shape=(2 * WORLD_W * WORLD_H,)))
+        shared_model.add(Dense(256, kernel_initializer="lecun_uniform", input_shape=(2 * WORLD_W * WORLD_H,)))
         shared_model.add(Activation('relu'))
 
-        shared_model.add(Dense(256, init='lecun_uniform'))
+        shared_model.add(Dense(256, kernel_initializer="lecun_uniform"))
         shared_model.add(Activation('relu'))
         shared_model.add(Dropout(0.2))
 
-        shared_model.add(Dense(128, init='lecun_uniform'))
+        shared_model.add(Dense(128, kernel_initializer="lecun_uniform"))
         shared_model.add(Activation('relu'))
         shared_model.add(Dropout(0.2))
 
         act_model = Sequential()
         act_model.add(shared_model)
-        act_model.add(Dense(5, init='lecun_uniform', activation='linear'))
+        act_model.add(Dense(5, kernel_initializer="lecun_uniform", activation='linear'))
 
         obs_model = Sequential()
         obs_model.add(shared_model)
-        obs_model.add(Dense(4, init='lecun_uniform', activation='linear'))
+        obs_model.add(Dense(8, kernel_initializer="lecun_uniform", activation='softmax'))
 
-        rms = RMSprop(lr=1e-10)
-        adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=0.1, decay=0.0)
 
-        act_model.compile(adam, 'mse')
-        obs_model.compile(adam, 'mse')
+        adam_act = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=0.1, decay=0.0)
+        adam_obs = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=0.1, decay=0.0)
+
+        act_model.compile(adam_act, 'mse')
+        obs_model.compile(adam_obs, 'mse')
 
         self.act_model = act_model
         self.obs_model = obs_model
@@ -69,6 +77,11 @@ class ShapeAgent:
             self.act_model.load_weights(WTS_ACTION_Q)
         if (os.path.isfile(WTS_OBSERVE_Q)):
             self.obs_model.load_weights(WTS_OBSERVE_Q)
+
+    def disp_update(self, T = 0):
+        self.env.visualize.canvas.update()
+        if(T):
+            self.env.visualize.canvas.after(T)
 
 if __name__ == "__main__":
 
@@ -100,7 +113,7 @@ if __name__ == "__main__":
 
                 sa.env.observe_quadrant(agent, obs_quad)
                 act_reward = sa.env.agent_action(agent, action)
-                shape_reward = sa.env.check_formation(agent) * RWD_GOAL_FORMATION
+                shape_reward = sa.env.check_formation(agent) * RWD_CLOSENESS
 
                 new_state = sa.env.get_agent_state(agent)
 

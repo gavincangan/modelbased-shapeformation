@@ -1,7 +1,6 @@
 from macros import *
 import numpy as np
 from gworld import *
-# from Tkinter import *
 import random
 
 class Visualize:
@@ -9,6 +8,7 @@ class Visualize:
     DEFAULT_COLOR = 1
     HIGHLIGHT_COLOR = 2
     def __init__(self, world_data):
+        from Tkinter import *
         self.frame = Tk()
         self.canvas = Canvas(self.frame, width=FRAME_WIDTH, height=FRAME_HEIGHT)
         self.canvas.grid()

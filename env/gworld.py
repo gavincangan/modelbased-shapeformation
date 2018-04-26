@@ -278,6 +278,20 @@ class GridWorld:
         belief_matrix = self.get_belief_matrix(aindx)
         return np.concatenate( (pos_matrix, belief_matrix) )
 
+    def check_shape(self):
+        sqmat_detect = np.zeros_like(self.cells)
+        occ_cells = self.anonymize_obs(None, self.cells.copy())
+        for ty in range(self.h):
+            for tx in range(self.w):
+                if(occ_cells[ty, tx] == 0):
+                    pass
+                else:
+                    sqmat_detect[ty, tx] = min( occ_cells[ max(0,ty-1), tx ], occ_cells[ ty, max(0, tx-1) ], occ_cells[ max(0, ty-1), max(0, tx-1) ] )
+        if(sqmat_detect.max() == 2):
+            return True
+        else:
+            return False
+
     # def check_formation(self, agent):
     #     y, x = self.aindx_cpos[agent]
     #     print self.get_nbor_SxSgrid(agent)
