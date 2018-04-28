@@ -46,6 +46,19 @@ class ImWorldModel:
 
         imworld_model = Sequential()
         imworld_model.add(shared_model)
+
+        imworld_model.add(Dense(64, kernel_initializer="lecun_uniform"))
+        imworld_model.add(Activation('relu'))
+        imworld_model.add(Dropout(0.2))
+
+        imworld_model.add(Dense(64, kernel_initializer="lecun_uniform"))
+        imworld_model.add(Activation('relu'))
+        imworld_model.add(Dropout(0.2))
+
+        imworld_model.add(Dense(128, kernel_initializer="lecun_uniform"))
+        imworld_model.add(Activation('relu'))
+        imworld_model.add(Dropout(0.2))
+
         imworld_model.add(Dense(2 * WORLD_W * WORLD_H, kernel_initializer="lecun_uniform", activation='softmax'))
 
         adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=0.1, decay=0.0)

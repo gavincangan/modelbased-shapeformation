@@ -9,6 +9,8 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import RMSprop, Adam
 
+from im_world import ImWorldModel
+
 class ShapeAgent:
     def __init__(self, show_vis = False):
         self.num_iter = 10000
@@ -84,6 +86,7 @@ class ShapeAgent:
 if __name__ == "__main__":
 
     sa = ShapeAgent(True)
+    sa.epsilon = 0.25
     sa.init_model()
     sa.load_model()
     for i in range(sa.num_iter):
