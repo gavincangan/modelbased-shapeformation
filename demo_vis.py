@@ -16,8 +16,6 @@ class Sarq:
         self.rewards = []
         self.qmax_nxt = None
 
-
-
 class ImaginePath:
     def __init__(self, mod_world, mod_rwd, mod_obs, mod_act, num_steps = 3):
         self.path = []
@@ -37,10 +35,9 @@ class ImaginePath:
 
         state_tp1 = self.mod_world.predict(mod_inputs, batch_size=1)
         reward = self.mod_rwd.predict(mod_inputs, batch_size=1)
-
         return ( state_tp1, reward )
 
-    def get_obsseq_tstate(self, tstate, nw_seq = [], seq_len = 3):
+    def get_obsseq_tstate(self, tstate, nw_seq = [], seq_len = 5):
         ret = Sarq()
         ret.states.append(tstate)
         curr_step = 0
@@ -48,7 +45,7 @@ class ImaginePath:
         obs_quads = range(Observe.TotalOptions)
         while curr_step < len(nw_seq) and obs_quad < Observe.NUM_QUADRANTS:
             obs_quad = nw_seq[curr_step]
-            nxt_state, t_rwd = self.imagine_state_rwd( states[curr_step], Actions.NUM_ACTIONS + obs_quad )
+            nxt_state, t_rwd = self.imagine_state_rwd( ret.states[curr_step], Actions.NUM_ACTIONS + obs_quad )
             ret.rewards.append( t_rwd )
             ret.actions.append( obs_quad )
             ret.states.append( nxt_state )
@@ -86,7 +83,7 @@ class ImaginePath:
 
         return(ret)
 
-    def get_act_seq_state(self, tstate, nw_seq = [], seq_len = 3):
+    def get_act_seq_state(self, tstate, nw_seq = [], seq_len = 5):
         ret = Sarq()
         ret.states.append(tstate)
         curr_step = 0
@@ -112,7 +109,6 @@ class ImaginePath:
 
         qval_nxt_act = self.get_qval_act( ret.states[-1] )
         ret.qmax_nxt = np.max(qval_nxt_act)
-
         return (ret)
 
     def get_qval_obs(self, state_t):
@@ -124,6 +120,8 @@ class ImaginePath:
         mod_input = state_t.reshape(2 * WORLD_W * WORLD_H, 1)
         qval_act = self.mod_obs.predict(mod_input, batch_size=1)
         return qval_act
+
+
 
 class ShapeAgent:
     def __init__(self, show_vis = False):
@@ -209,7 +207,10 @@ if __name__ == "__main__":
     im.init_model()
     im.load_model()
 
-    raw_results = np.zeros(sa.num_iter)
+    ip = ImaginePath()
+
+    done_step = np.ones(sa.num_iter) * sa.episode_maxlen
+    scores = np.zeros(sa.num_iter)
 
     for i in range(sa.num_iter):
 
@@ -217,6 +218,8 @@ if __name__ == "__main__":
         step_count = 0
         sa.init_env()
         agents = sa.env.get_agents()
+        shape_reward = False
+        rewards = 0
         while(step_count < sa.episode_maxlen and not done_flag):
 
             random.shuffle(agents)
@@ -224,43 +227,63 @@ if __name__ == "__main__":
             for agent in agents:
                 if not done_flag:
                     # sa.env.visualize.highlight_agent(agent)
-
-                    obs_quads = range(Observe.TotalOptions)
-                    obs_quad = Observe.Quadrant1
-                    while obs_quads and obs_quad < Observe.NUM_QUADRANTS:
-                        state = sa.env.get_agent_state(agent)
-
-                        if(random.random() < sa.epsilon):
-                            qval_obs = sa.obs_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)
-                            obs_quad = random.randint(Observe.Quadrant1, Observe.Quadrant4)
-                        else:
-                            obs_quad = (np.argmax(qval_obs))
-
-
+                    # obs_quads = range(Observe.TotalOptions)
+                    # obs_quad = Observe.Quadrant1
 
                     state = sa.env.get_agent_state(agent)
                     qval_obs = sa.obs_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)
+                    qval_order = np.argsort(qval_obs).tolist()
 
-                    if(random.random() < sa.epsilon):
-                        action = np.random.randint(Actions.RIGHT, Actions.WAIT)
-                        obs_quad = random.randint(Observe.Quadrant1, Observe.Quadrant4)
-                    else:
-                        action = (np.argmax(qval_act))
-                        obs_quad = (np.argmax(qval_obs))
+                    max_seq = None
+                    max_q = -10000
+                    obs_reward = 0
+                    for obs_choice in qval_order[0:4]:
+                        t_obs_seq = ip.get_obsseq_tstate( state, [obs_choice] )
+                        r_plus_qmax = sum(t_obs_seq.rewards) + t_obs_seq.qmax_nxt
+                        if(r_plus_qmax > max_q):
+                            max_q = r_plus_qmax
+                            max_seq = t_obs_seq
 
-                    sa.env.observe_quadrant(agent, obs_quad)
+                    for obs_quad in max_seq.actions:
+                        if(obs_quad < Observe.NUM_QUADRANTS):
+                            sa.env.observe_quadrant(agent, obs_quad)
+                            obs_reward = obs_reward + RWD_STEP_DEFAULT
+                        else:
+                            break
+
+                    state = sa.env.get_agent_state(agent)
+                    qval_act = sa.act_model.predict(state, batch_size=1)
+                    qval_order = np.argsort(qval_act).tolist()
+
+                    max_seq = None
+                    max_q = -10000
+                    for act_choice in qval_obs:
+                        t_act_seq = ip.get_act_seq_state( state, [act_choice] )
+                        r_plus_qmax = sum(t_act_seq.rewards) + t_act_seq.qmax_nxt
+                        if(r_plus_qmax > max_q):
+                            max_q = r_plus_qmax
+                            max_seq = t_act_seq
+
+                    action = max_seq.actions[0]
                     act_reward = sa.env.agent_action(agent, action)
-                    shape_reward = sa.env.check_formation(agent) * RWD_CLOSENESS
+
+                    closeness_reward = sa.env.check_formation(agent) * RWD_CLOSENESS
+
+                    shape_reward = shape_reward or sa.env.check_shape()
+
+                    rewards = rewards + obs_reward + act_reward + closeness_reward + ( int(shape_reward) * RWD_SHAPE_FORMED )
+
+                    if(shape_reward):
+                        done_flag = True
+                        done_step[i] = step_count
 
                     # print ('Agent #%s \tact:%s actQ:%s \n\t\tobs:%s obsQ:%s \n\t\tactR:%s, shapeR:%s' % (agent, action, qval_act, obs_quad, qval_obs, act_reward, shape_reward))
-                    print ('Agent #%s actR:%s, shapeR:%s' % (agent, act_reward, shape_reward))
+                    # print ('Agent #%s actR:%s, shapeR:%s' % (agent, act_reward, shape_reward))
 
                     sa.env.share_beliefs(agent)
-
                     new_state = sa.env.get_agent_state(agent)
+        scores[i] = rewards
 
-                    sa.disp_update(1000)
-        sa.disp_update(2500)
-
-
-
+        print 'Iter:', i, ' scores:', scores[i], ' steps:', done_step[i]
+        if(done_step[i] < sa.episode_maxlen):
+            print '-- Shaped formed in ', done_step[i], ' steps!'
