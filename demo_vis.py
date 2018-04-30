@@ -9,18 +9,132 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import RMSprop, Adam
 
-from im_world import ImWorldModel
+class Sarq:
+    def  __init__(self):
+        self.states = []
+        self.actions = []
+        self.rewards = []
+        self.qmax_nxt = None
+
+
+
+class ImaginePath:
+    def __init__(self, mod_world, mod_rwd, mod_obs, mod_act, num_steps = 3):
+        self.path = []
+        self.num_steps = 3
+        self.exp_reward = 0
+        self.mod_world = mod_world
+        self.mod_rwd = mod_rwd
+        self.mod_act = mod_act
+        self.mod_obs = mod_obs
+        self.epsilon = 0.1
+
+    def imagine_state_rwd(self, state_t, action):
+        mod_inputs = np.zeros( (2 * WORLD_W * WORLD_H + Actions.NUM_ACTIONS + Observe.TotalOptions, 1) )
+        mod_inputs[2 * WORLD_W * WORLD_H, :] = state_t.reshape(2 * WORLD_W * WORLD_H, 1)
+
+        mod_inputs[2 * WORLD_W * WORLD_H + action, :] = 1
+
+        state_tp1 = self.mod_world.predict(mod_inputs, batch_size=1)
+        reward = self.mod_rwd.predict(mod_inputs, batch_size=1)
+
+        return ( state_tp1, reward )
+
+    def get_obsseq_tstate(self, tstate, nw_seq = [], seq_len = 3):
+        ret = Sarq()
+        ret.states.append(tstate)
+        curr_step = 0
+        obs_quad = 0
+        obs_quads = range(Observe.TotalOptions)
+        while curr_step < len(nw_seq) and obs_quad < Observe.NUM_QUADRANTS:
+            obs_quad = nw_seq[curr_step]
+            nxt_state, t_rwd = self.imagine_state_rwd( states[curr_step], Actions.NUM_ACTIONS + obs_quad )
+            ret.rewards.append( t_rwd )
+            ret.actions.append( obs_quad )
+            ret.states.append( nxt_state )
+            if (obs_quad in obs_quads):
+                obs_quads.remove(obs_quad)
+            else:
+                print(obs_quad, ' ---- ', obs_quads)
+                raise NotImplementedError
+            curr_step = curr_step + 1
+
+        while curr_step < seq_len and obs_quad < Observe.NUM_QUADRANTS:
+            qval_obs = self.get_qval_obs( ret.states[curr_step] )
+
+            if (random.random() < self.epsilon):
+                # obs_quad = random.randint(Observe.Quadrant1, Observe.TotalOptions)
+                random.shuffle(obs_quads)
+                obs_quad = obs_quads.pop()
+            else:
+                left_quads = qval_obs[:, np.array(obs_quads)]
+                obs_quad_indx = np.argmax(left_quads)
+                obs_quad = obs_quads[obs_quad_indx]
+                if (obs_quad in obs_quads):
+                    obs_quads.remove(obs_quad)
+                else:
+                    print(obs_quad, ' ---- ', obs_quads)
+                    raise NotImplementedError
+            nxt_state, t_rwd = self.imagine_state_rwd( ret.states[curr_step], Actions.NUM_ACTIONS + obs_quad)
+            ret.rewards.append( t_rwd )
+            ret.actions.append( obs_quad )
+            ret.states.append( nxt_state )
+            curr_step = curr_step + 1
+
+        qval_nxt_act = self.get_qval_act( ret.states[-1] )
+        ret.qmax_nxt = np.max(qval_nxt_act)
+
+        return(ret)
+
+    def get_act_seq_state(self, tstate, nw_seq = [], seq_len = 3):
+        ret = Sarq()
+        ret.states.append(tstate)
+        curr_step = 0
+        while curr_step < len(nw_seq):
+            t_act = nw_seq[curr_step]
+            nxt_state, t_rwd = self.imagine_state_rwd(ret.states[curr_step], t_act)
+            ret.rewards.append(t_rwd)
+            ret.actions.append(t_act)
+            ret.states.append(nxt_state)
+            curr_step = curr_step + 1
+
+        while curr_step < seq_len:
+            qval_act = sa.act_model.predict( ret.states[curr_step], batch_size=1)
+            if (random.random() < self.epsilon):
+                t_act = np.random.randint(Actions.RIGHT, Actions.WAIT)
+            else:
+                t_act = (np.argmax(qval_act))
+            nxt_state, t_rwd = self.imagine_state_rwd(ret.states[curr_step], t_act)
+            ret.rewards.append( t_rwd )
+            ret.actions.append( t_act )
+            ret.states.append( nxt_state )
+            curr_step = curr_step + 1
+
+        qval_nxt_act = self.get_qval_act( ret.states[-1] )
+        ret.qmax_nxt = np.max(qval_nxt_act)
+
+        return (ret)
+
+    def get_qval_obs(self, state_t):
+        mod_input = state_t.reshape(2 * WORLD_W * WORLD_H, 1)
+        qval_obs = self.mod_obs.predict(mod_input, batch_size=1)
+        return qval_obs
+
+    def get_qval_act(self, state_t):
+        mod_input = state_t.reshape(2 * WORLD_W * WORLD_H, 1)
+        qval_act = self.mod_obs.predict(mod_input, batch_size=1)
+        return qval_act
 
 class ShapeAgent:
     def __init__(self, show_vis = False):
         self.num_iter = 10000
         self.gamma = 0.975
-        self.alpha = 0.75
-        self.beta = 0.55
-        self.epsilon = 0.75
+        self.alpha = 0.85
+        self.beta = 0.75
+        self.epsilon = 0.1
         self.batchsize = 40
         self.episode_maxlen = 80
-        self.replay = deque(maxlen=4000)
+        self.replay = deque(maxlen=400)
         self.show_vis = show_vis
         # self.init_env()
         # self.init_model()
@@ -85,10 +199,18 @@ class ShapeAgent:
 
 if __name__ == "__main__":
 
-    sa = ShapeAgent(True)
-    sa.epsilon = 0.25
+    from im_world import ImWorldModel
+
+    sa = ShapeAgent(False)
     sa.init_model()
     sa.load_model()
+
+    im = ImWorldModel()
+    im.init_model()
+    im.load_model()
+
+    raw_results = np.zeros(sa.num_iter)
+
     for i in range(sa.num_iter):
 
         done_flag = False
@@ -101,9 +223,22 @@ if __name__ == "__main__":
             step_count += 1
             for agent in agents:
                 if not done_flag:
-                    sa.env.visualize.highlight_agent(agent)
+                    # sa.env.visualize.highlight_agent(agent)
+
+                    obs_quads = range(Observe.TotalOptions)
+                    obs_quad = Observe.Quadrant1
+                    while obs_quads and obs_quad < Observe.NUM_QUADRANTS:
+                        state = sa.env.get_agent_state(agent)
+
+                        if(random.random() < sa.epsilon):
+                            qval_obs = sa.obs_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)
+                            obs_quad = random.randint(Observe.Quadrant1, Observe.Quadrant4)
+                        else:
+                            obs_quad = (np.argmax(qval_obs))
+
+
+
                     state = sa.env.get_agent_state(agent)
-                    qval_act = sa.act_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)
                     qval_obs = sa.obs_model.predict(state.reshape(1, 2 * WORLD_H * WORLD_W), batch_size=1)
 
                     if(random.random() < sa.epsilon):
@@ -119,6 +254,8 @@ if __name__ == "__main__":
 
                     # print ('Agent #%s \tact:%s actQ:%s \n\t\tobs:%s obsQ:%s \n\t\tactR:%s, shapeR:%s' % (agent, action, qval_act, obs_quad, qval_obs, act_reward, shape_reward))
                     print ('Agent #%s actR:%s, shapeR:%s' % (agent, act_reward, shape_reward))
+
+                    sa.env.share_beliefs(agent)
 
                     new_state = sa.env.get_agent_state(agent)
 

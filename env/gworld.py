@@ -307,3 +307,18 @@ class GridWorld:
         nbor_grid[1, 1] = 0
         # conv_op = scipy.signal.convolve2d(cell_mat, GridWorld.formation_check_filter)
         return nbor_grid.sum()
+
+    def share_beliefs(self, agent):
+        PROB_MY_BELIEF = 0.75
+        sxs_grid = self.get_nbor_SxSgrid(agent, 1)
+        sxs_grid[1, 1] = 0
+        nbors_alldir = sxs_grid[sxs_grid > 0]
+        nbors_alldir = nbors_alldir.tolist()
+        if(nbors_alldir):
+            tbelief = np.zeros_like( self.aindx_belief[agent], dtype='float' )
+            for nbor in nbors_alldir:
+                tbelief = tbelief + self.aindx_belief[nbor]
+            tbelief = tbelief / len(nbors_alldir)
+            my_belief = (PROB_MY_BELIEF * self.aindx_belief[agent]) + ( (1-PROB_MY_BELIEF) * tbelief )
+            my_belief = my_belief / my_belief.sum()
+            self.aindx_belief[agent] = my_belief
