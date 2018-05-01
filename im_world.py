@@ -18,9 +18,9 @@ class ImWorldModel:
     def __init__(self):
         self.num_iter = 10000
         self.gamma = 0.975
-        self.epsilon = 0.25
+        self.epsilon = 0.65
         self.batchsize = 40
-        self.episode_maxlen = 80
+        self.episode_maxlen = 1000
         self.replay = deque(maxlen=400)
         # self.init_env()
         # self.init_model()
@@ -317,9 +317,9 @@ if __name__ == "__main__":
             im.reward_model.fit(X_imworld_train, Y_imreward_train, batch_size=sa.batchsize, epochs=10, verbose=0, callbacks=[tb_im_reward])
 
         if (sa.epsilon > 0.1):
-            sa.epsilon -= (1 / 1000)
+            sa.epsilon -= (0.01)
         if (im.epsilon > 0.1):
-            im.epsilon -= (1 / 1000)
+            im.epsilon -= (0.01)
 
         sa.save_model()
         im.save_model()

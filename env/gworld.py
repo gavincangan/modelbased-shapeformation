@@ -286,7 +286,10 @@ class GridWorld:
                 if(occ_cells[ty, tx] == 0):
                     pass
                 else:
-                    sqmat_detect[ty, tx] = min( occ_cells[ max(0,ty-1), tx ], occ_cells[ ty, max(0, tx-1) ], occ_cells[ max(0, ty-1), max(0, tx-1) ] )
+                    cell_up = occ_cells[ max(0,ty-1), tx ]
+                    cell_left = occ_cells[ ty, max(0, tx-1) ]
+                    cell_upleft = occ_cells[ max(0, ty-1), max(0, tx-1) ]
+                    sqmat_detect[ty, tx] = min( cell_up, cell_left, cell_upleft ) + 1
         if(sqmat_detect.max() == 2):
             return True
         else:
